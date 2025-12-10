@@ -27,42 +27,41 @@ func New(secret string) *JWTParser {
 }
 
 // * ParseToken извлекает userID и username из JWT токена
-func (p *JWTParser) ParseToken(authHeader string) (string, string, error) {
+func (p *JWTParser) ParseToken(authHeader string) (int64, string, error) {
 	if authHeader == "" {
-		return "", "", ErrMissingAuthHeader
+		return 0, "", ErrMissingAuthHeader
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", "", ErrInvalidAuthHeader
+		return 0, "", ErrInvalidAuthHeader
 	}
 
 	tokenString := parts[1]
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем алгоритм
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(p.Secret), nil
 	})
 	if err != nil || !token.Valid {
-		return "", "", ErrInvalidToken
+		return 0, "", ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", "", ErrInvalidToken
+		return 0, "", ErrInvalidToken
 	}
 
-	userID, ok := claims["uid"].(string)
-	if !ok || userID == "" {
-		return "", "", ErrMissingUserIDClaim
+	userID, ok := claims["uid"].(int64)
+	if !ok {
+		return 0, "", ErrMissingUserIDClaim
 	}
 
 	username, ok := claims["username"].(string)
 	if !ok || username == "" {
-		return "", "", ErrMissingUsernameClaim
+		return 0, "", ErrMissingUsernameClaim
 	}
 
 	return userID, username, nil

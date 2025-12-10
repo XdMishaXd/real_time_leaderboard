@@ -1,9 +1,10 @@
 package models
 
 type LeaderboardEntry struct {
-	UserID string `json:"user_id"`
-	Score  int64  `json:"score"`
-	Rank   int64  `json:"rank"`
+	UserID   int64  `json:"user_id"`
+	Username string `json:"username"`
+	Score    int64  `json:"score"`
+	Rank     int64  `json:"rank"`
 }
 
 type UserRank struct {

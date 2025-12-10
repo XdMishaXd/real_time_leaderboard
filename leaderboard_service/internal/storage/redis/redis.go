@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"leaderboard_service/internal/models"
 	"leaderboard_service/internal/storage"
+	"strconv"
 
 	"strings"
 
@@ -51,17 +52,17 @@ func (r *RedisRepo) GetAllGames(ctx context.Context) ([]string, error) {
 	return r.client.SMembers(ctx, gamesKey).Result()
 }
 
-func (r *RedisRepo) SubmitScore(ctx context.Context, game, userID string, score int64) error {
-	_, err := r.client.Eval(ctx, storage.SubmitScoreScript, []string{game}, userID, score).Result()
+func (r *RedisRepo) SubmitScore(ctx context.Context, game, username string, userID, score int64) (int64, error) {
+	res, err := r.client.Eval(ctx, storage.SubmitScoreScript, []string{game}, userID, username, score).Result()
 	if err != nil {
 		if strings.Contains(err.Error(), "GAME_NOT_FOUND") {
-			return storage.ErrGameNotFound
+			return 0, storage.ErrGameNotFound
 		}
 
-		return err
+		return 0, err
 	}
 
-	return err
+	return res.(int64), err
 }
 
 func (r *RedisRepo) GetTop(ctx context.Context, game string, limit int64) ([]models.LeaderboardEntry, error) {
@@ -76,21 +77,23 @@ func (r *RedisRepo) GetTop(ctx context.Context, game string, limit int64) ([]mod
 	entries := make([]models.LeaderboardEntry, 0, len(res))
 
 	for i, z := range res {
+		userID, _ := strconv.ParseInt(z.Member.(string), 10, 64)
 		entries = append(entries, models.LeaderboardEntry{
-			UserID: fmt.Sprint(z.Member),
-			Score:  int64(z.Score),
-			Rank:   int64(i + 1),
+			UserID:   userID,
+			Username: r.client.Options().Username,
+			Score:    int64(z.Score),
+			Rank:     int64(i + 1),
 		})
 	}
 
 	return entries, nil
 }
 
-func (r *RedisRepo) GetUserScoreAndRank(ctx context.Context, game, userID string) (*models.UserRank, error) {
+func (r *RedisRepo) GetUserScoreAndRank(ctx context.Context, game string, userID int64) (*models.UserRank, error) {
 	key := leaderboardKey(game)
 
 	// ZSCORE для получения очков
-	score, err := r.client.ZScore(ctx, key, userID).Result()
+	score, err := r.client.ZScore(ctx, key, strconv.FormatInt(userID, 10)).Result()
 	if err == redis.Nil {
 		return nil, nil // user not found
 	}
@@ -99,7 +102,7 @@ func (r *RedisRepo) GetUserScoreAndRank(ctx context.Context, game, userID string
 	}
 
 	// ZREVRANK (от большего к меньшему)
-	rank, err := r.client.ZRevRank(ctx, key, userID).Result()
+	rank, err := r.client.ZRevRank(ctx, key, strconv.FormatInt(userID, 10)).Result()
 	if err == redis.Nil {
 		return nil, nil
 	}
