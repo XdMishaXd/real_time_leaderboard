@@ -27,9 +27,15 @@ type Response struct {
 
 type ScoreSaver interface {
 	SubmitScore(ctx context.Context, game, username string, userID, score int64) (int64, error)
+	EnsureGameExists(ctx context.Context, game string) error
 }
 
-func New(ctx context.Context, log *slog.Logger, scoreSaver ScoreSaver, jwtParser jwt.JWTParser) http.HandlerFunc {
+func New(
+	ctx context.Context,
+	log *slog.Logger,
+	scoreSaver ScoreSaver,
+	jwtParser jwt.JWTParser,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.sumbit.New"
 
@@ -65,6 +71,15 @@ func New(ctx context.Context, log *slog.Logger, scoreSaver ScoreSaver, jwtParser
 		if err != nil {
 			log.Error("Failed to parse JWT", sl.Err(err))
 
+			render.JSON(w, r, resp.Error("Unauthorized"))
+
+			return
+		}
+
+		err = scoreSaver.EnsureGameExists(ctx, req.Game)
+		if err != nil {
+			log.Error("Failed to check if game exists", sl.Err(err))
+
 			render.JSON(w, r, resp.Error("Internal error"))
 
 			return
@@ -78,6 +93,8 @@ func New(ctx context.Context, log *slog.Logger, scoreSaver ScoreSaver, jwtParser
 
 			return
 		}
+
+		log.Info("Score submited successfully", slog.Int64("uid", userID))
 
 		ResponseOK(w, r, req.Game, req.Score, rank)
 	}

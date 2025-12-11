@@ -3,8 +3,7 @@ package storage
 import "errors"
 
 var (
-	ErrGameAlreadyExists = errors.New("Game already exists")
-	ErrGameNotFound      = errors.New("Game not found")
+	ErrGameNotFound = errors.New("Game not found")
 )
 
 const (
@@ -35,7 +34,7 @@ const (
 		local game = KEYS[1]
 		local exists = redis.call("SISMEMBER", "games", game)
 		if exists == 1 then
-			return {err="GAME_ALREADY_EXISTS"}
+			return {ok="OK"}
 		end
 		redis.call("SADD", "games", game)
 		return {ok="OK"}

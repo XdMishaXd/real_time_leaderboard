@@ -38,10 +38,6 @@ func New(ctx context.Context, db int, addr string) (*RedisRepo, error) {
 func (r *RedisRepo) EnsureGameExists(ctx context.Context, game string) error {
 	_, err := r.client.Eval(ctx, storage.EnsureGameExistsScript, []string{game}).Result()
 	if err != nil {
-		if strings.Contains(err.Error(), "GAME_ALREADY_EXISTS") {
-			return storage.ErrGameAlreadyExists
-		}
-
 		return err
 	}
 
@@ -53,7 +49,14 @@ func (r *RedisRepo) GetAllGames(ctx context.Context) ([]string, error) {
 }
 
 func (r *RedisRepo) SubmitScore(ctx context.Context, game, username string, userID, score int64) (int64, error) {
-	res, err := r.client.Eval(ctx, storage.SubmitScoreScript, []string{game}, userID, username, score).Result()
+	res, err := r.client.Eval(
+		ctx,
+		storage.SubmitScoreScript,
+		[]string{game},
+		userID,
+		username,
+		score,
+	).Result()
 	if err != nil {
 		if strings.Contains(err.Error(), "GAME_NOT_FOUND") {
 			return 0, storage.ErrGameNotFound
