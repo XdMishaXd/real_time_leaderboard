@@ -1,4 +1,4 @@
-package gametop
+package myresult
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"leaderboard_service/internal/models"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -17,22 +16,24 @@ import (
 
 type Response struct {
 	resp.Response
-	Game string                    `json:"game"`
-	Top  []models.LeaderboardEntry `json:"top"`
+	Game   string `json:"game"`
+	UserID int64  `json:"user_id"`
+	Score  int64  `json:"score"`
+	Rank   int64  `json:"rank"`
 }
 
-type TopGetter interface {
-	GetTop(ctx context.Context, game string, limit int64) ([]models.LeaderboardEntry, error)
+type StatisticsGetter interface {
+	GetUserScoreAndRank(ctx context.Context, game string, userID int64) (*models.UserRank, error)
 }
 
 func New(
 	ctx context.Context,
 	log *slog.Logger,
-	topGetter TopGetter,
+	statsGetter StatisticsGetter,
 	jwtParser jwt.JWTParser,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		const op = "handlers.game_top.New"
+		const op = "handlers.my_result.New"
 
 		log = log.With(
 			slog.String("op", op),
@@ -48,17 +49,7 @@ func New(
 			return
 		}
 
-		limitStr := r.URL.Query().Get("limit")
-		limit, err := strconv.ParseInt(limitStr, 10, 64)
-		if err != nil || limit <= 0 {
-			log.Error("limit is empty", sl.Err(err))
-
-			render.JSON(w, r, resp.Error("Invalid limit"))
-
-			return
-		}
-
-		_, _, err = jwtParser.ParseToken(r.Header.Get("Authorization"))
+		userID, _, err := jwtParser.ParseToken(r.Header.Get("Authorization"))
 		if err != nil {
 			log.Error("Failed to parse JWT", sl.Err(err))
 
@@ -67,25 +58,27 @@ func New(
 			return
 		}
 
-		gameTop, err := topGetter.GetTop(ctx, game, limit)
+		userRank, err := statsGetter.GetUserScoreAndRank(ctx, game, userID)
 		if err != nil {
-			log.Error("Failed get top", sl.Err(err))
+			log.Error("Failed get user score", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("Internal error"))
 
 			return
 		}
 
-		log.Info("game top got successfully", slog.String("game", game))
+		log.Info("user statistics got successfully", slog.Int64("uid", userID))
 
-		ResponseOK(w, r, game, gameTop)
+		ResponseOK(w, r, game, userID, userRank.Score, userRank.Rank)
 	}
 }
 
-func ResponseOK(w http.ResponseWriter, r *http.Request, game string, top []models.LeaderboardEntry) {
+func ResponseOK(w http.ResponseWriter, r *http.Request, game string, userID, score, rank int64) {
 	render.JSON(w, r, Response{
 		Response: resp.OK(),
+		UserID:   userID,
 		Game:     game,
-		Top:      top,
+		Score:    score,
+		Rank:     rank,
 	})
 }

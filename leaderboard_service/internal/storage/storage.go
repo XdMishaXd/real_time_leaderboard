@@ -3,7 +3,9 @@ package storage
 import "errors"
 
 var (
-	ErrGameNotFound = errors.New("Game not found")
+	ErrGameNotFound   = errors.New("Game not found")
+	ErrNoResultsFound = errors.New("No results found")
+	ErrUserNotFound   = errors.New("User not found")
 )
 
 const (

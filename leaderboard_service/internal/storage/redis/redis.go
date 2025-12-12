@@ -98,7 +98,7 @@ func (r *RedisRepo) GetUserScoreAndRank(ctx context.Context, game string, userID
 	// ZSCORE для получения очков
 	score, err := r.client.ZScore(ctx, key, strconv.FormatInt(userID, 10)).Result()
 	if err == redis.Nil {
-		return nil, nil // user not found
+		return nil, storage.ErrUserNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func (r *RedisRepo) GetUserScoreAndRank(ctx context.Context, game string, userID
 	// ZREVRANK (от большего к меньшему)
 	rank, err := r.client.ZRevRank(ctx, key, strconv.FormatInt(userID, 10)).Result()
 	if err == redis.Nil {
-		return nil, nil
+		return nil, storage.ErrNoResultsFound
 	}
 	if err != nil {
 		return nil, err
