@@ -2,9 +2,11 @@ package submit
 
 import (
 	"context"
+	"errors"
 	resp "leaderboard_service/internal/lib/api/response"
 	"leaderboard_service/internal/lib/jwt"
 	sl "leaderboard_service/internal/lib/logger"
+	"leaderboard_service/internal/storage"
 	"log/slog"
 	"net/http"
 
@@ -87,6 +89,14 @@ func New(
 
 		rank, err := scoreSaver.SubmitScore(ctx, req.Game, username, userID, req.Score)
 		if err != nil {
+			if errors.Is(err, storage.ErrScoreLowerThenCurrent) {
+				log.Error("New user score is lower then current", sl.Err(err))
+
+				render.JSON(w, r, resp.Error("score is lower then current"))
+
+				return
+			}
+
 			log.Error("Failed save score", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("Internal error"))
@@ -96,7 +106,7 @@ func New(
 
 		log.Info("Score submited successfully", slog.Int64("uid", userID))
 
-		ResponseOK(w, r, req.Game, req.Score, rank)
+		ResponseOK(w, r, req.Game, req.Score, rank+1)
 	}
 }
 

@@ -9,10 +9,9 @@ RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
 
-
 COPY . .
 
-RUN go build -o leaderboard_service ./cmd/leaderboard_service
+RUN go build -o mail-sender ./cmd/mail-sender
 
 FROM alpine:latest
 
@@ -20,9 +19,7 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /app/leaderboard_service .
+COPY --from=builder /app/mail-sender .
 COPY --from=builder /app/config ./config
 
-EXPOSE 8080
-
-CMD ["./leaderboard_service"]
+CMD ["./mail-sender"]

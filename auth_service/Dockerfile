@@ -12,7 +12,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o leaderboard_service ./cmd/leaderboard_service
+RUN go build -o auth_service ./cmd
 
 FROM alpine:latest
 
@@ -20,9 +20,9 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /app/leaderboard_service .
+COPY --from=builder /app/auth_service .
 COPY --from=builder /app/config ./config
 
-EXPOSE 8080
+EXPOSE 8082
 
-CMD ["./leaderboard_service"]
+CMD ["./auth_service"]

@@ -1,0 +1,91 @@
+services:  
+  postgres:
+    image: postgres:latest
+    container_name: auth_pg
+    environment:
+      POSTGRES_DB: auth_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d auth_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"    # AMQP-протокол
+      - "15672:15672"  # Веб-интерфейс
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    container_name: auth_service
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./auth_service/config:/app/config
+  mail_sender:
+    build: 
+      context: ./email_sender
+      dockerfile: Dockerfile
+    container_name: email_sender
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./email_sender/config:/app/config
+  redis:
+    image: redis:latest
+    container_name: leaderboard_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "password", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+  leaderboard_service:
+    build: 
+      context: ./leaderboard_service
+      dockerfile: Dockerfile
+    container_name: leaderboard_service
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth_service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./leaderboard_service/config:/app/config
+
+volumes:
+  postgres_data:
+  redis_data:

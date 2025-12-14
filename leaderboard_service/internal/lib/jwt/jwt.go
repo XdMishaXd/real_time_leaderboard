@@ -54,10 +54,11 @@ func (p *JWTParser) ParseToken(authHeader string) (int64, string, error) {
 		return 0, "", ErrInvalidToken
 	}
 
-	userID, ok := claims["uid"].(int64)
+	uidFloat, ok := claims["uid"].(float64)
 	if !ok {
 		return 0, "", ErrMissingUserIDClaim
 	}
+	userID := int64(uidFloat)
 
 	username, ok := claims["username"].(string)
 	if !ok || username == "" {

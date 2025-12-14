@@ -58,8 +58,8 @@ func (r *RedisRepo) SubmitScore(ctx context.Context, game, username string, user
 		score,
 	).Result()
 	if err != nil {
-		if strings.Contains(err.Error(), "GAME_NOT_FOUND") {
-			return 0, storage.ErrGameNotFound
+		if strings.Contains(err.Error(), "NEW_SCORE_IS_LOWER_THEN_CURRENT") {
+			return 0, storage.ErrScoreLowerThenCurrent
 		}
 
 		return 0, err
@@ -69,10 +69,11 @@ func (r *RedisRepo) SubmitScore(ctx context.Context, game, username string, user
 }
 
 func (r *RedisRepo) GetTop(ctx context.Context, game string, limit int64) ([]models.LeaderboardEntry, error) {
-	key := leaderboardKey(game)
+	leaderboardkey := leaderboardKey(game)
+	usernamesKey := usernamesKey(game)
 
 	// ZREVRANGE берет от наибольшего к наименьшему
-	res, err := r.client.ZRevRangeWithScores(ctx, key, 0, limit-1).Result()
+	res, err := r.client.ZRevRangeWithScores(ctx, leaderboardkey, 0, limit-1).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +82,20 @@ func (r *RedisRepo) GetTop(ctx context.Context, game string, limit int64) ([]mod
 
 	for i, z := range res {
 		userID, _ := strconv.ParseInt(z.Member.(string), 10, 64)
+		username, err := r.client.HGet(
+			ctx,
+			usernamesKey,
+			z.Member.(string),
+		).Result()
+		if err == redis.Nil {
+			username = ""
+		} else if err != nil {
+			return nil, err
+		}
+
 		entries = append(entries, models.LeaderboardEntry{
 			UserID:   userID,
-			Username: r.client.Options().Username,
+			Username: username,
 			Score:    int64(z.Score),
 			Rank:     int64(i + 1),
 		})
@@ -125,4 +137,8 @@ func (r *RedisRepo) Close() {
 
 func leaderboardKey(game string) string {
 	return "leaderboard:" + game
+}
+
+func usernamesKey(game string) string {
+	return "usernames:" + game
 }
