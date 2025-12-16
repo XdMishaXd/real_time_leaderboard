@@ -43,7 +43,8 @@ func New(
 		if game == "" {
 			log.Info("Game is empty")
 
-			render.JSON(w, r, resp.Error("not found"))
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, resp.Error("parameter game is empty"))
 
 			return
 		}

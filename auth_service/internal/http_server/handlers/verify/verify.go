@@ -34,6 +34,7 @@ func New(ctx context.Context,
 		if token == "" {
 			log.Warn("missing verification token")
 
+			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, resp.Error("missing token"))
 
 			return
