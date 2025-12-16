@@ -53,6 +53,7 @@ func New(
 
 			log.Error("Invalid request", sl.Err(err))
 
+			render.Status(r, http.StatusBadRequest)
 			render.JSON(w, r, resp.ValidationError(validateErr))
 
 			return
